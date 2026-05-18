@@ -608,6 +608,11 @@ function Api.route(path, full_uri, reqinfo)
         return Api.getDashboard()
     end
 
+    if path == "/api/refresh" then
+        DataLoader._dashboard_cache = nil
+        return { ok = true, refreshed_at = os.time() }
+    end
+
     return { error = "Unknown API endpoint: " .. path }
 end
 

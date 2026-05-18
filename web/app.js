@@ -585,6 +585,7 @@ const IC = {
   download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M4 19h16"/></svg>',
   copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
   check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 13 4 4L19 7"/></svg>',
+  refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>',
 };
 
 function icon(name, size = 16) {
@@ -851,6 +852,31 @@ function setupChrome() {
       overlay.classList.remove('visible');
     });
   });
+
+  const refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    const setIdle = () => {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = `${icon('refresh', 14)} Refresh`;
+    };
+    setIdle();
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = 'Refreshing...';
+      try {
+        // GET so the same endpoint works in both the standalone Docker
+        // server and the in-KOReader plugin (which only allows GETs).
+        await apiNoCache('refresh');
+        Object.keys(cache).forEach((k) => delete cache[k]);
+        hideTooltip();
+        navigate(state.view || 'books');
+      } catch (e) {
+        window.alert(`Refresh failed: ${e?.message || e}`);
+      } finally {
+        setIdle();
+      }
+    });
+  }
 
   const disconnectBtn = document.getElementById('disconnectBtn');
   if (disconnectBtn) {

@@ -286,6 +286,21 @@ body {
   color: var(--text-faint);
   border-color: var(--border);
 }
+#refreshBtn.refresh-btn {
+  position: fixed;
+  right: 14px;
+  bottom: calc(var(--tabbar-h) + 64px);
+  z-index: 36;
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+}
+#refreshBtn.refresh-btn:hover {
+  background: color-mix(in srgb, var(--text) 8%, var(--surface-2));
+}
+#refreshBtn.refresh-btn:disabled {
+  opacity: .6;
+  cursor: progress;
+}
 .nav-tab {
   min-height: 58px;
   flex-direction: column;
@@ -2080,6 +2095,13 @@ html[data-color-scheme='light'] .milestone-point .milestone-dot { border-color: 
   #disconnectBtn.disconnect-btn {
     right: 10px;
     bottom: calc(var(--tabbar-h) + 10px);
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: .76rem;
+  }
+  #refreshBtn.refresh-btn {
+    right: 10px;
+    bottom: calc(var(--tabbar-h) + 52px);
     min-height: 34px;
     padding: 0 10px;
     font-size: .76rem;

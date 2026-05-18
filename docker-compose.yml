@@ -1,0 +1,49 @@
+# Example docker-compose for the KoDashboard standalone server.
+#
+# Two volumes matter:
+#
+#   1. /data/koreader  — your KOReader data directory. Must contain
+#      `settings/statistics.sqlite3` (and ideally `history.lua` and the
+#      `docsettings/` tree if your sidecars live there).
+#
+#   2. your books directory — mount it at the EXACT same absolute path that
+#      KOReader uses on the device. The history.lua file stores absolute
+#      book paths (e.g. `/mnt/us/documents/Foo.epub` on Kindle); KoDashboard
+#      reads the .sdr sidecars next to those files, so mounting the books
+#      dir at the matching path lets sidecar discovery, highlights, and
+#      annotations all work without any path-rewriting.
+#
+#      If your KOReader keeps sidecars centrally under
+#      koreader/docsettings/, you can skip the books mount — the dataloader
+#      also scans there.
+
+services:
+  kodashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: kodashboard:latest
+    container_name: kodashboard
+    ports:
+      - "8686:8686"
+    volumes:
+      # KOReader data: typically the contents of `/mnt/us/koreader/` on a
+      # Kindle or the equivalent on your reader.
+      - ./koreader-data:/data/koreader:ro
+
+      # Books (only needed if your sidecars live alongside the book files).
+      # Adjust both sides so the right-hand path matches what's stored in
+      # history.lua. Common examples:
+      #   Kindle:        - ./books:/mnt/us/documents:ro
+      #   Kobo:          - ./books:/mnt/onboard:ro
+      #   Generic Linux: - /home/user/Books:/home/user/Books:ro
+      # - ./books:/mnt/us/documents:ro
+
+    environment:
+      PORT: "8686"
+      # Optional overrides — defaults shown.
+      # KO_DATA_DIR: /data/koreader
+      # KO_SETTINGS_DIR: /data/koreader/settings
+      # KO_LOG_DEBUG: "1"
+
+    restart: unless-stopped
