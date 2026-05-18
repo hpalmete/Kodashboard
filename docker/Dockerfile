@@ -22,6 +22,11 @@ RUN set -eu; \
         ca-certificates \
         tini \
     ; \
+    # lua-ljsqlite3 calls ffi.load("libsqlite3.so") (unversioned). The
+    # runtime package only ships libsqlite3.so.0; the unversioned symlink
+    # is in libsqlite3-dev, so add it manually instead of pulling the dev
+    # package (~5 MB saved).
+    ln -s libsqlite3.so.0 /usr/lib/x86_64-linux-gnu/libsqlite3.so; \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
