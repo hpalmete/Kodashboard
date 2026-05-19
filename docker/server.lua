@@ -8,6 +8,19 @@
 local socket = require("socket")
 local logger = require("logger")
 local JSON   = require("json")
+
+-- Force read-only opens for the KOReader stats DB. ljsqlite3's default
+-- mode is "rwc" (read-write-create); on a `:ro` mount that fails with
+-- ljsqlite3[cantopen] because SQLite can't create the journal sidecar
+-- files. Wrap once here, before dataloader lazy-requires the module.
+do
+    local SQ3 = require("lua-ljsqlite3/init")
+    local original_open = SQ3.open
+    SQ3.open = function(path, mode)
+        return original_open(path, mode or "ro")
+    end
+end
+
 local DataLoader = require("dataloader")
 local Api = require("api")
 
