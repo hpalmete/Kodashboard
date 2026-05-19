@@ -157,6 +157,85 @@ local function handle_api_refresh(client)
     write_response(client, 200, "application/json", body)
 end
 
+-- Diagnostic for "stats DB read silently returns nothing." Surfaces the
+-- resolved DB path, table list, and row counts so we can tell whether the
+-- file is missing, the schema differs (e.g. older `page_stat` vs newer
+-- `page_stat_data`), or queries just hit zero rows.
+local function handle_api_debug_stats(client)
+    local DataStorage = require("datastorage")
+    local lfs = require("libs/libkoreader-lfs")
+
+    local out = {
+        ko_data_dir = DataStorage:getDataDir(),
+        ko_settings_dir = DataStorage:getSettingsDir(),
+        candidates = {},
+    }
+
+    local function probe(p)
+        local mode = lfs.attributes(p, "mode")
+        local size = nil
+        if mode == "file" then
+            local f = io.open(p, "rb")
+            if f then size = f:seek("end") or 0; f:close() end
+        end
+        table.insert(out.candidates, { path = p, exists = mode == "file", size = size })
+    end
+
+    probe((out.ko_settings_dir or "") .. "/statistics.sqlite3")
+    probe((out.ko_data_dir or "") .. "/statistics.sqlite3")
+    probe((out.ko_data_dir or "") .. "/settings/statistics.sqlite3")
+
+    local picked
+    for _, c in ipairs(out.candidates) do
+        if c.exists and not picked then picked = c.path end
+    end
+    out.picked = picked
+
+    if picked then
+        local ok_sq, SQ3 = pcall(require, "lua-ljsqlite3/init")
+        if not ok_sq then
+            out.sqlite_error = "load failed: " .. tostring(SQ3)
+        else
+            local ok_open, conn = pcall(SQ3.open, picked)
+            if not ok_open then
+                out.sqlite_error = "open failed: " .. tostring(conn)
+            else
+                local function collect(sql, col)
+                    local results = {}
+                    local ok, err = pcall(function()
+                        local stmt = conn:prepare(sql)
+                        local r = stmt:step()
+                        while r do
+                            table.insert(results, tostring(r[col or 1]))
+                            r = stmt:step()
+                        end
+                        stmt:close()
+                    end)
+                    if not ok then results._error = tostring(err) end
+                    return results
+                end
+
+                out.tables = collect("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+                out.row_counts = {}
+                for _, tname in ipairs(out.tables) do
+                    local ok_c, count_or_err = pcall(function()
+                        return conn:rowexec("SELECT count(*) FROM " .. tname)
+                    end)
+                    out.row_counts[tname] = ok_c and tostring(count_or_err) or ("err: " .. tostring(count_or_err))
+                end
+                out.columns = {}
+                for _, tname in ipairs({ "book", "page_stat", "page_stat_data" }) do
+                    local cols = collect("PRAGMA table_info(" .. tname .. ")", 2)
+                    if #cols > 0 then out.columns[tname] = cols end
+                end
+                conn:close()
+            end
+        end
+    end
+
+    write_response(client, 200, "application/json", JSON.encode(out))
+end
+
 local function handle_api(client, req, path)
     if path == "/api/refresh" then
         if req.method ~= "POST" and req.method ~= "GET" then
@@ -164,6 +243,11 @@ local function handle_api(client, req, path)
             return
         end
         handle_api_refresh(client)
+        return
+    end
+
+    if path == "/api/_debug/stats" then
+        handle_api_debug_stats(client)
         return
     end
 
